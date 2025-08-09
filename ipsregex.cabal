@@ -1,0 +1,38 @@
+cabal-version:      3.0
+name:               ipsregex
+version:            0.1.0.0
+-- synopsis:
+-- description:
+license:            MIT
+license-file:       LICENSE
+author:             Jacob Siegumfeldt
+maintainer:         jacobi7th@gmail.com
+build-type:         Simple
+-- extra-doc-files:    CHANGELOG.md
+
+common warnings
+    ghc-options: -Wall
+
+library
+  hs-source-dirs: src
+  exposed-modules: 
+    IPSRegex.Regex
+    IPSRegex.Parse
+    IPSRegex.NFA
+    IPSRegex.DFA
+  default-language: Haskell2010
+  default-extensions: FlexibleContexts
+  build-depends: 
+      base ^>=4.18.3.0
+    , containers
+    , mtl
+    , parsec
+
+executable main
+    import:           warnings
+    main-is:          Main.hs
+    build-depends:    
+        base ^>=4.18.3.0
+      , ipsregex
+      , containers
+    default-language: Haskell2010
