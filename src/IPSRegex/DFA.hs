@@ -140,8 +140,7 @@ subsetConstruction s0' dead nfaTrns nfaAlph =
         $ nfaTrns
 
 -- TODO: Implement minimisation of DFAs.
--- See 'https://www.numberanalytics.com/blog/hopcroft-algorithm-guide'.
--- Remember to make the move function total first.
+-- see 'https://www.numberanalytics.com/blog/hopcroft-algorithm-guide'.
 minimiseDfa :: DFA -> DFA
 minimiseDfa = id
 
