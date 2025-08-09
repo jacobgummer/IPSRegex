@@ -68,29 +68,30 @@ nfaToDfa nfa = minimiseDfa dfa
     nfaAlph = nfaAlphabet nfa
     startStateS = S.singleton $ nfaStartState nfa
     s0' = epsClosure nfaTrns startStateS
-    (states, trns) = subsetConstruction s0' nfaTrns nfaAlph
-    allStates = S.insert s0' states
+    dead = S.singleton (-1) -- Used to make the move function total.
+    (states, trns) = subsetConstruction s0' dead nfaTrns nfaAlph
+
+    allStates = states <> S.fromList [s0', dead]
+
     nfaAcc = nfaAcceptingState nfa
+
     accepting = S.filter (S.member nfaAcc) allStates
+
+    -- For each character c in the alphabet, make a transition from the dead
+    -- state to itself via c.
+    connectDeadToSelf c = M.singleton dead (M.singleton c dead)
+    allTrns = foldr (M.unionWith M.union . connectDeadToSelf) trns nfaAlph
 
     -- TODO: Map every DFA state (a set) to a unique integer.
 
     -- idStatePairs = zip [1 ..] (S.elems allStates)
 
-    -- NOTE:
-    -- 'trns' isn't total:
-    -- 1) If a state s has no outgoing transitions, 'M.lookup s trns' will
-    --    return Nothing instead of an empty Map (or solely transitions to
-    --    a dead state).
-    -- 2) If a state s has no outgoing transition via some character c ∈ Σ,
-    --    'M.lookup c . M.lookup s trns' will return Nothing instead of
-    --    a dead state.
     dfa =
       DFA
         { dfaStates = allStates
         , dfaStartState = s0'
         , dfaAcceptingStates = accepting
-        , dfaTransitions = trns
+        , dfaTransitions = allTrns
         }
 
 -- | The subset construction algorithm for converting an NFA to a DFA.
@@ -98,10 +99,11 @@ nfaToDfa nfa = minimiseDfa dfa
 -- It uses the work-list algorithm "template" for efficiency.
 subsetConstruction ::
   DFAState ->
+  DFAState ->
   NFATransitions ->
   Alphabet ->
   (Set DFAState, DFATransitions)
-subsetConstruction s0' nfaTrns nfaAlph =
+subsetConstruction s0' dead nfaTrns nfaAlph =
   subsetConstruction' [s0'] S.empty M.empty
   where
     subsetConstruction' [] states trns = (states, trns)
@@ -122,10 +124,10 @@ subsetConstruction s0' nfaTrns nfaAlph =
     -- s' should transition to via c.
     moveAll s' = foldr (findStatesAndTransitions s') (S.empty, M.empty) nfaAlph
 
-    findStatesAndTransitions s' c acc@(states, trns) =
+    findStatesAndTransitions s' c (states, trns) =
       let to = move s' c
        in if null to
-            then acc -- The empty set of NFA states is not a DFA state.
+            then (states, trns `combine` connect s' c dead)
             else (S.insert to states, trns `combine` connect s' c to)
 
     -- Calculate the (DFA) state that s' should reach when transitioning via c.
@@ -160,8 +162,16 @@ runDfa str' dfa = runDfa' str' (dfaStartState dfa)
           consume str currState <|> Just ("", str)
       | otherwise = consume str currState
 
+    noTransitionsErrMsg st =
+      "Invalid DFA. State '"
+        <> show st
+        <> "' has no outgoing transitions."
+
     consume [] _ = Nothing
-    consume cs currState = go cs =<< M.lookup currState dfaTrns
+    consume cs currState =
+      case M.lookup currState dfaTrns of
+        Nothing -> error $ noTransitionsErrMsg currState
+        Just currStTrns -> go cs currStTrns
 
     -- If there is a transition from the current state via c, prepend c
     -- to all of the next matched characters in the input. Otherwise, go
