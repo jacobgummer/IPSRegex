@@ -101,8 +101,8 @@ nfaToDfa nfa = minimiseDfa dfa
         , dfaTransitions = idsAllTrns
         }
 
--- | Convert a map of transitions such that all keys and values in the inner
--- map are now integers instead of sets.
+-- | Convert a map of transitions such that all keys in the outer map and
+-- all values in the inner map are now integers instead of sets.
 convertTrns ::
   (DFAState' -> DFAState) ->
   DFATransitions' ->
