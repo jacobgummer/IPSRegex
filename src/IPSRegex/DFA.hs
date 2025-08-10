@@ -5,8 +5,10 @@ import Data.Bifunctor (first)
 import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Sq
 import Data.Set (Set, (\\))
-import qualified Data.Set as S
+import qualified Data.Set as Set
 import IPSRegex.NFA (
   Alphabet,
   NFA (..),
@@ -48,24 +50,24 @@ data DFA = DFA
 -- that can be reached from any state in M using any number of
 -- ε-transitions.
 epsClosure :: NFATransitions -> Set NFAState -> Set NFAState
-epsClosure trns m = epsClosure' (S.elems m) m
+epsClosure trns m = epsClosure' (Set.elems m) m
   where
     epsClosure' [] clsr = clsr
     epsClosure' (x : unmarked) clsr =
       let fMx = f_M x
           newClsr = clsr <> fMx
-          newUnmarked = S.elems $ fMx \\ clsr
+          newUnmarked = Set.elems $ fMx \\ clsr
        in epsClosure' (newUnmarked ++ unmarked) newClsr
 
-    f_M x = S.insert x $ epsTransitions trns (S.singleton x)
+    f_M x = Set.insert x $ epsTransitions trns (Set.singleton x)
 
 -- | Determine which states can be reached from @states@ via a single
 -- ε-transition.
 epsTransitions :: NFATransitions -> Set NFAState -> Set NFAState
-epsTransitions trns states = S.unions $ S.map reachableViaEps states
+epsTransitions trns states = Set.unions $ Set.map reachableViaEps states
   where
     reachableViaEps s =
-      M.findWithDefault S.empty Epsilon . M.findWithDefault M.empty s $ trns
+      M.findWithDefault Set.empty Epsilon . M.findWithDefault M.empty s $ trns
 
 -- | Convert an NFA to a DFA using the subset construction algorithm described
 -- in section 1.5.2 in 'Introduction to Compiler Design'.
@@ -76,22 +78,22 @@ nfaToDfa nfa = minimiseDfa dfa
   where
     nfaTrns = nfaTransitions nfa
     nfaAlph = nfaAlphabet nfa
-    startStateS = S.singleton $ nfaStartState nfa
+    startStateS = Set.singleton $ nfaStartState nfa
     s0' = epsClosure nfaTrns startStateS
     (states, allTrns) = subsetConstruction s0' nfaTrns nfaAlph
 
-    allStates = S.insert s0' states
+    allStates = Set.insert s0' states
 
     nfaAcc = nfaAcceptingState nfa
 
-    accepting = S.filter (S.member nfaAcc) allStates
+    accepting = Set.filter (Set.member nfaAcc) allStates
 
-    stateIdMap = M.fromAscList $ zip (S.toAscList allStates) [0 ..]
+    stateIdMap = M.fromAscList $ zip (Set.toAscList allStates) [0 ..]
     converter = (M.!) stateIdMap
     idsAllTrns = convertTrns converter allTrns
-    idsAllStates = S.fromList $ M.elems stateIdMap
+    idsAllStates = Set.fromList $ M.elems stateIdMap
     idS0' = converter s0'
-    idsAccepting = S.map converter accepting
+    idsAccepting = Set.map converter accepting
 
     dfa =
       DFA
@@ -121,13 +123,13 @@ subsetConstruction ::
   Alphabet ->
   (Set DFAState', DFATransitions')
 subsetConstruction s0' nfaTrns nfaAlph =
-  subsetConstruction' [s0'] S.empty M.empty
+  subsetConstruction' [s0'] Set.empty M.empty
   where
     subsetConstruction' [] states trns = (states, trns)
     subsetConstruction' (s' : unmarked) states trns =
       let (states', trns') = moveAll s'
           newStates = states <> states'
-          newUnmarked = S.elems $ states' \\ states
+          newUnmarked = Set.elems $ states' \\ states
           newTrns = trns `combine` trns'
        in subsetConstruction' (newUnmarked ++ unmarked) newStates newTrns
 
@@ -139,27 +141,31 @@ subsetConstruction s0' nfaTrns nfaAlph =
 
     -- For each character c in the original NFA's alphabet, find which state
     -- s' should transition to via c.
-    moveAll s' = foldr (findStatesAndTransitions s') (S.empty, M.empty) nfaAlph
+    moveAll s' = foldr (findStatesAndTransitions s') (Set.empty, M.empty) nfaAlph
 
     findStatesAndTransitions s' c acc@(states, trns) =
       let to = move s' c
        in if null to
             then acc
-            else (S.insert to states, trns `combine` connect s' c to)
+            else (Set.insert to states, trns `combine` connect s' c to)
 
     -- Calculate the (DFA) state that s' should reach when transitioning via c.
-    move s' c = epsClosure nfaTrns . S.unions $ S.map (reachableVia c) s'
+    move s' c = epsClosure nfaTrns . Set.unions $ Set.map (reachableVia c) s'
 
     -- Find every (NFA) state reachable from s via c.
     reachableVia c s =
-      M.findWithDefault S.empty (Symbol c)
+      M.findWithDefault Set.empty (Symbol c)
         . M.findWithDefault M.empty s
         $ nfaTrns
 
 -- TODO: Implement minimisation of DFAs.
 -- See 'https://www.numberanalytics.com/blog/hopcroft-algorithm-guide'.
 minimiseDfa :: DFA -> DFA
-minimiseDfa = id
+minimiseDfa dfa = id dfa
+  where
+    accepting = dfaAcceptingStates dfa
+    nonAccepting = dfaStates dfa \\ accepting
+    partition = [accepting, nonAccepting]
 
 -- This was also inspired by Troels Henriksens 'runDFA' function
 -- in 'https://sigkill.dk/hacks/scripts/HsGrep.hs'.
@@ -169,7 +175,7 @@ runDfa str' dfa = runDfa' str' (dfaStartState dfa)
     dfaTrns = dfaTransitions dfa
     accepting = dfaAcceptingStates dfa
 
-    isAccepting st = st `S.member` accepting
+    isAccepting st = st `Set.member` accepting
 
     runDfa' str currState
       | isAccepting currState =
