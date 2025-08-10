@@ -86,10 +86,10 @@ nfaToDfa nfa = minimiseDfa dfa
 
     accepting = S.filter (S.member nfaAcc) allStates
 
-    stateIdPairs = M.fromAscList $ zip (S.toAscList allStates) [0 ..]
-    converter = (M.!) stateIdPairs
+    stateIdMap = M.fromAscList $ zip (S.toAscList allStates) [0 ..]
+    converter = (M.!) stateIdMap
     idsAllTrns = convertTrns converter allTrns
-    idsAllStates = S.fromList $ M.elems stateIdPairs
+    idsAllStates = S.fromList $ M.elems stateIdMap
     idS0' = converter s0'
     idsAccepting = S.map converter accepting
 
