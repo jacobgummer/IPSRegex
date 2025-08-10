@@ -178,16 +178,8 @@ runDfa str' dfa = runDfa' str' (dfaStartState dfa)
           consume str currState <|> Just ("", str)
       | otherwise = consume str currState
 
-    noTransitionsErrMsg st =
-      "Invalid DFA. State '"
-        <> show st
-        <> "' has no outgoing transitions."
-
     consume [] _ = Nothing
-    consume cs currState =
-      case M.lookup currState dfaTrns of
-        Nothing -> error $ noTransitionsErrMsg currState
-        Just currStTrns -> go cs currStTrns
+    consume cs currState = go cs =<< M.lookup currState dfaTrns
 
     -- If there is a transition from the current state via c, prepend c
     -- to all of the next matched characters in the input. Otherwise, go
