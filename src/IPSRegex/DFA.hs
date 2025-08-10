@@ -16,28 +16,31 @@ import IPSRegex.NFA (
   TransSymbol (..),
  )
 
--- | Each DFA state is a set of NFA states.
--- Not necessary but makes it easier to implement algorithm for subset
--- construction.
+-- | During conversion from an NFA to a DFA, each DFA state is represented as
+-- a set of NFA states to make the subset construction easier to implement.
 type DFAState' = Set NFAState
 
-type DFAState = Int
-
--- | Transitions from a single DFA state.
+-- | Transitions from a single DFA state during conversion.
 type DFAStateTransitions' = Map Char DFAState'
 
-type DFAStateTransitions = Map Char DFAState
-
--- | The outgoing transitions for the states in the DFA.
+-- | The outgoing transitions for the states in the DFA during conversion.
 type DFATransitions' = Map DFAState' DFAStateTransitions'
 
+-- | After conversion, each DFA state is represented by a unique integer.
+type DFAState = Int
+
+-- | Transitions from a single DFA state after conversion.
+type DFAStateTransitions = Map Char DFAState
+
+-- | The outgoing transitions for the states in the DFA after conversion.
 type DFATransitions = Map DFAState DFAStateTransitions
 
+-- | Information about a deterministic finite automaton.
 data DFA = DFA
-  { dfaStates :: Set DFAState'
-  , dfaStartState :: DFAState'
-  , dfaAcceptingStates :: Set DFAState'
-  , dfaTransitions :: DFATransitions'
+  { dfaStates :: Set DFAState
+  , dfaStartState :: DFAState
+  , dfaAcceptingStates :: Set DFAState
+  , dfaTransitions :: DFATransitions
   }
 
 -- | Find the ε-closure of a set of states @m@.
@@ -78,7 +81,9 @@ nfaToDfa nfa = minimiseDfa dfa
     dead = S.singleton (-1) -- Used to make the move function total.
     (states, trns) = subsetConstruction s0' dead nfaTrns nfaAlph
 
-    allStates = states <> S.fromList [s0', dead]
+    -- states <> S.fromList [s0', dead]
+    allStates' = S.insert s0' states
+    allStates = S.insert dead allStates'
 
     nfaAcc = nfaAcceptingState nfa
 
@@ -89,27 +94,41 @@ nfaToDfa nfa = minimiseDfa dfa
     connectDeadToSelf c = M.singleton dead (M.singleton c dead)
     allTrns = foldr (M.unionWith M.union . connectDeadToSelf) trns nfaAlph
 
-    -- TODO: Map every DFA state (a set) to a unique integer.
+    idStatePairs' = M.fromList $ zip (S.elems allStates') [0 ..]
+    idStatePairs = M.insert dead (-1) idStatePairs'
 
-    -- idStatePairs = zip [1 ..] (S.elems allStates)
+    converter = (M.!) idStatePairs
+    idsAllTrns = convertTrns converter allTrns
+    idsAllStates = S.fromList $ M.elems idStatePairs
+    idS0' = converter s0'
+    idsAccepting = S.map converter accepting
 
     dfa =
       DFA
-        { dfaStates = allStates
-        , dfaStartState = s0'
-        , dfaAcceptingStates = accepting
-        , dfaTransitions = allTrns
+        { dfaStates = idsAllStates
+        , dfaStartState = idS0'
+        , dfaAcceptingStates = idsAccepting
+        , dfaTransitions = idsAllTrns
         }
+
+convertTrns ::
+  (DFAState' -> DFAState) ->
+  DFATransitions' ->
+  DFATransitions
+convertTrns converter trns' = trnsWIds
+  where
+    idKeysMap = M.mapKeys converter trns'
+    trnsWIds = M.map (M.map converter) idKeysMap
 
 -- | The subset construction algorithm for converting an NFA to a DFA.
 -- Equivalent to Algorithm 1.3 (page 16) in 'Introduction to Compiler Design'.
 -- It uses the work-list algorithm "template" for efficiency.
 subsetConstruction ::
-  DFAState ->
-  DFAState ->
+  DFAState' ->
+  DFAState' ->
   NFATransitions ->
   Alphabet ->
-  (Set DFAState, DFATransitions)
+  (Set DFAState', DFATransitions')
 subsetConstruction s0' dead nfaTrns nfaAlph =
   subsetConstruction' [s0'] S.empty M.empty
   where
