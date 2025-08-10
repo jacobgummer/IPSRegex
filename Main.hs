@@ -1,6 +1,8 @@
 module Main (main) where
 
 import Data.List (intercalate)
+import Data.Map (Map)
+import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
 import IPSRegex.DFA (DFA (..), nfaToDfa, runDfa)
