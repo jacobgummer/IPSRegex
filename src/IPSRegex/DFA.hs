@@ -275,7 +275,6 @@ hopcroft dfaTrns allStates alph waiting partition =
     -- Handle a set A from W.
     handleA a = forM_ alphList (handleChar a) >> hopcroftM
 
-    -- OPTIM: This could, overall, be implemented in a more efficient manner.
     hopcroftM = do
       waiting <- gets fst
       case waiting of
