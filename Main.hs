@@ -68,8 +68,8 @@ main = do
     numStatesDFA = S.size $ dfaStates dfa
     numStatesNFA = S.size $ nfaStates nfa
 
-    putStrWInfo info s = putStrLn $ info <> ": " <> s
-    putStrWInfo' info s = putStrLn $ info <> ": " <> s <> "\n"
+    putStrWInfo info s = putStrLn $ info <> ":\n" <> s
+    putStrWInfo' info s = putStrLn $ info <> ":\n" <> s <> "\n"
 
     showFstMatch reg input = fromMaybe "no matches" (getFirstMatch reg input)
 
