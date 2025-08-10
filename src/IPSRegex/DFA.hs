@@ -56,7 +56,7 @@ epsClosure trns m = epsClosure' (S.elems m) m
 
     f_M x = S.insert x $ epsTransitions trns (S.singleton x)
 
--- | Determine which states can be reached from @states@ via ε-transitions.
+-- | Determine which states can be reached from @states@ via an ε-transition.
 epsTransitions :: NFATransitions -> Set NFAState -> Set NFAState
 epsTransitions trns states = S.unions $ S.map reachableViaEps states
   where
