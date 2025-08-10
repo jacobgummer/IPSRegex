@@ -141,7 +141,8 @@ subsetConstruction s0' nfaTrns nfaAlph =
 
     -- For each character c in the original NFA's alphabet, find which state
     -- s' should transition to via c.
-    moveAll s' = foldr (findStatesAndTransitions s') (Set.empty, M.empty) nfaAlph
+    moveAll s' =
+      foldr (findStatesAndTransitions s') (Set.empty, M.empty) nfaAlph
 
     findStatesAndTransitions s' c acc@(states, trns) =
       let to = move s' c
