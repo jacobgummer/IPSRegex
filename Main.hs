@@ -44,6 +44,67 @@ getAllMatches regex str' = getAllMatches' str' []
         Nothing -> getAllMatches' (tail str) matches
         Just (match, rest) -> getAllMatches' rest (match : matches)
 
+makeTransitions :: [(Int, Char, Int)] -> Map Int (Map Char Int)
+makeTransitions = foldr f M.empty
+  where
+    f (s1, c, s2) acc =
+      let trn = M.singleton s1 (M.singleton c s2)
+       in M.unionWith M.union trn acc
+
+-- | Fig. 1.10 in 'Introduction to Compiler Design'.
+testDfa1 :: DFA
+testDfa1 =
+  DFA
+    { dfaAlphabet = alph
+    , dfaStartState = start
+    , dfaStates = states
+    , dfaAcceptingStates = accepting
+    , dfaTransitions = trns
+    }
+  where
+    alph = S.fromList "ab"
+    states = S.fromList [0 .. 7]
+    start = 0
+    accepting = S.fromList [0, 6]
+    trns =
+      makeTransitions
+        [ (0, 'a', 1)
+        , (1, 'a', 4)
+        , (1, 'b', 2)
+        , (2, 'a', 3)
+        , (2, 'b', 5)
+        , (3, 'b', 1)
+        , (4, 'a', 6)
+        , (4, 'b', 5)
+        , (5, 'a', 7)
+        , (5, 'b', 2)
+        , (6, 'a', 5)
+        , (7, 'a', 0)
+        , (7, 'b', 5)
+        ]
+
+-- | Figure from page 24 in 'Introduction to Compiler Design'.
+testDfa2 :: DFA
+testDfa2 =
+  DFA
+    { dfaAlphabet = alph
+    , dfaStartState = start
+    , dfaStates = states
+    , dfaAcceptingStates = accepting
+    , dfaTransitions = trns
+    }
+  where
+    alph = S.fromList "ab"
+    start = 1
+    states = S.fromList [1, 2, 3]
+    accepting = S.fromList [1, 2]
+    trns =
+      makeTransitions
+        [ (1, 'a', 2)
+        , (2, 'a', 1)
+        , (2, 'b', 3)
+        ]
+
 -- TODO: Do things based on program input.
 main :: IO ()
 main = do
