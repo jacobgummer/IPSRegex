@@ -179,10 +179,7 @@ runDfa str' dfa = runDfa' str' (dfaStartState dfa)
       | otherwise = consume str currState
 
     consume [] _ = Nothing
-    consume str currState = go str =<< M.lookup currState dfaTrns
-
-    -- If there is a transition from the current state via c, prepend c
-    -- to all of the next matched characters in the input. Otherwise, go
-    -- will return Nothing.
-    go (c : cs) currStTrns =
-      first (c :) <$> (runDfa' cs =<< M.lookup c currStTrns)
+    consume (c : cs) currState = do
+      stateTrns <- M.lookup currState dfaTrns
+      nextState <- M.lookup c stateTrns
+      first (c :) <$> runDfa' cs nextState
