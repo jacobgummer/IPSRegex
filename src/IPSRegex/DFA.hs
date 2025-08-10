@@ -181,7 +181,7 @@ runDfa str' dfa = runDfa' str' (dfaStartState dfa)
     runDfa' str currState
       | isAccepting currState =
           -- If the current state is accepting, we still try to consume the
-          -- next character(s), but if this fails, we stop here.
+          -- next character(s), but if this fails, we stop here. I love monads.
           consume str currState <|> Just ("", str)
       | otherwise = consume str currState
 
