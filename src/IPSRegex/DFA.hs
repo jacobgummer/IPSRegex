@@ -1,13 +1,20 @@
-module IPSRegex.DFA (nfaToDfa, runDfa, DFA (..)) where
+module IPSRegex.DFA (minimiseDfa, nfaToDfa, runDfa, DFA (..)) where
 
 import Control.Applicative ((<|>))
-import Data.Bifunctor (first)
+import Control.Monad (forM_)
+import Control.Monad.State (
+  MonadState (get, put),
+  evalState,
+  gets,
+ )
+import Data.Bifunctor (first, second)
+import Data.Foldable (toList)
 import Data.Map (Map)
 import qualified Data.Map as M
-import Data.Maybe (fromMaybe)
-import Data.Sequence (Seq)
+import Data.Maybe (fromMaybe, isJust, maybe)
+import Data.Sequence (Seq (..), (<|), (><), (|>))
 import qualified Data.Sequence as Sq
-import Data.Set (Set, (\\))
+import Data.Set (Set, disjoint, intersection, isSubsetOf, (\\))
 import qualified Data.Set as Set
 import IPSRegex.NFA (
   Alphabet,
@@ -43,6 +50,7 @@ data DFA = DFA
   , dfaStartState :: DFAState
   , dfaAcceptingStates :: Set DFAState
   , dfaTransitions :: DFATransitions
+  , dfaAlphabet :: Set Char
   }
 
 -- | Find the ε-closure of a set of states @m@.
@@ -69,18 +77,17 @@ epsTransitions trns states = Set.unions $ Set.map reachableViaEps states
     reachableViaEps s =
       M.findWithDefault Set.empty Epsilon . M.findWithDefault M.empty s $ trns
 
--- | Convert an NFA to a DFA using the subset construction algorithm described
--- in section 1.5.2 in 'Introduction to Compiler Design'.
---
--- Currently, the resulting DFA is not minimal.
+-- | Convert an NFA to a DFA, first by using the subset construction algorithm
+-- described in section 1.5.2 in 'Introduction to Compiler Design' to construct
+-- an equivalent DFA, then minimising this DFA.
 nfaToDfa :: NFA -> DFA
 nfaToDfa nfa = minimiseDfa dfa
   where
     nfaTrns = nfaTransitions nfa
-    nfaAlph = nfaAlphabet nfa
+    dfaAlph = nfaAlphabet nfa
     startStateS = Set.singleton $ nfaStartState nfa
     s0' = epsClosure nfaTrns startStateS
-    (states, allTrns) = subsetConstruction s0' nfaTrns nfaAlph
+    (states, allTrns) = subsetConstruction s0' nfaTrns dfaAlph
 
     allStates = Set.insert s0' states
 
@@ -101,6 +108,7 @@ nfaToDfa nfa = minimiseDfa dfa
         , dfaStartState = idS0'
         , dfaAcceptingStates = idsAccepting
         , dfaTransitions = idsAllTrns
+        , dfaAlphabet = dfaAlph
         }
 
 -- | Convert a map of transitions such that all keys in the outer map and
@@ -109,6 +117,7 @@ convertTrns ::
   (DFAState' -> DFAState) ->
   DFATransitions' ->
   DFATransitions
+-- TODO: Maybe just move this up inside 'nfaToDfa'.
 convertTrns converter trns' = trnsWIds
   where
     idKeysMap = M.mapKeys converter trns'
@@ -155,18 +164,126 @@ subsetConstruction s0' nfaTrns nfaAlph =
 
     -- Find every (NFA) state reachable from s via c.
     reachableVia c s =
-      M.findWithDefault Set.empty (Symbol c)
-        . M.findWithDefault M.empty s
-        $ nfaTrns
+      M.findWithDefault Set.empty (Symbol c) $
+        M.findWithDefault M.empty s nfaTrns
 
--- TODO: Implement minimisation of DFAs.
--- See 'https://www.numberanalytics.com/blog/hopcroft-algorithm-guide'.
+-- | Minimise a DFA by combining equivalent states.
+--
+-- Precondition: Either (1) @dfa@'s move function is total, i.e., there are no
+-- undefined transitions, or (2) @dfa@ contains no dead states. This is
+-- satisfied as long as the original regex is converted to an NFA with
+-- @regexpToNfa@ and this NFA is converted to a DFA with @nfaToDfa@.
 minimiseDfa :: DFA -> DFA
-minimiseDfa dfa = id dfa
+minimiseDfa dfa = minimalDfa
   where
+    states = dfaStates dfa
     accepting = dfaAcceptingStates dfa
-    nonAccepting = dfaStates dfa \\ accepting
-    partition = [accepting, nonAccepting]
+    nonAccepting = states \\ accepting
+    trns = dfaTransitions dfa
+    alph = dfaAlphabet dfa
+    partition = Sq.fromList [accepting, nonAccepting]
+    consistentStates = hopcroft trns states alph partition partition
+
+    idEquivStatePairs = zip [0 ..] consistentStates
+
+    findNewId [] s = error "s couldn't be found"
+    findNewId ((newId, states) : rest) s
+      | s `Set.member` states = (s, newId)
+      | otherwise = findNewId rest s
+
+    newStateIdsMap =
+      M.fromAscList $
+        Set.toAscList $
+          Set.map (findNewId idEquivStatePairs) states
+
+    converter = (M.!) newStateIdsMap
+    idKeysMap = M.mapKeys converter trns
+    newTrns = M.map (M.map converter) idKeysMap
+    newStates = Set.fromList $ M.elems newStateIdsMap
+    newStartState = converter $ dfaStartState dfa
+    newAccepting = Set.map converter accepting
+
+    minimalDfa =
+      DFA
+        { dfaStartState = newStartState
+        , dfaStates = newStates
+        , dfaAcceptingStates = newAccepting
+        , dfaTransitions = newTrns
+        , dfaAlphabet = alph
+        }
+
+-- | Hopcroft's algorithm for DFA minimisation. Based on pseudocode from
+-- Wikipedia's 'DFA minimization' page.
+hopcroft ::
+  DFATransitions ->
+  Set DFAState ->
+  Alphabet ->
+  Seq (Set DFAState) ->
+  Seq (Set DFAState) ->
+  [Set DFAState]
+hopcroft dfaTrns allStates alph waiting partition =
+  toList $ evalState hopcroftM (waiting, partition)
+  where
+    alphList = Set.elems alph
+
+    -- Check if 's' can reach 'a' via the character 'c'.
+    -- OPTIM: Could construct a reverse transition map beforehand.
+    canReachVia c a s =
+      case M.lookup s dfaTrns of
+        Nothing -> False
+        Just sTrns -> maybe False (`Set.member` a) $ M.lookup c sTrns
+
+    nonEmptyIntersectAndDiff x y = not $ disjoint x y || y `isSubsetOf` x
+
+    -- If Y is in W, replace Y with X ∩ Y and Y - X in W.
+    -- Otherwise, insert the smaller of X ∩ Y and Y - X.
+    modifyWaiting mbI intersect diff = do
+      (waiting, partition) <- get
+      let newWaiting =
+            case mbI of
+              Nothing ->
+                if Set.size intersect <= Set.size diff
+                  then intersect <| waiting
+                  else diff <| waiting
+              Just i -> Sq.fromList [intersect, diff] >< Sq.deleteAt i waiting
+      put (newWaiting, partition)
+
+    -- Replace Y with X ∩ Y and Y - X in P.
+    modifyPartition i intersect diff = do
+      (waiting, partition) <- get
+      let newPartition =
+            Sq.fromList [intersect, diff] >< Sq.deleteAt i partition
+      put (waiting, newPartition)
+
+    -- Handle a Y for which X ∩ Y ≠ ∅ and Y - X ≠ ∅.
+    handleY x y = do
+      (waiting, partition) <- get
+      let intersect = x `intersection` y
+          diff = y \\ x
+          p_i = fromMaybe (error "shouldn't happen") $ Sq.elemIndexL y partition
+          m_w_i = Sq.elemIndexL y waiting
+      modifyPartition p_i intersect diff
+      modifyWaiting m_w_i intersect diff
+
+    -- Handle a character from the original DFA's alphabet.
+    handleChar a c = do
+      partition <- gets snd
+      let x = Set.filter (canReachVia c a) allStates
+          allYs = Sq.filter (nonEmptyIntersectAndDiff x) partition
+      forM_ allYs (handleY x)
+
+    -- Handle a set A from W.
+    handleA a = forM_ alphList (handleChar a) >> hopcroftM
+
+    -- OPTIM: This could, overall, be implemented in a more efficient manner.
+    hopcroftM = do
+      waiting <- gets fst
+      case waiting of
+        Empty -> gets snd
+        (a :<| waiting') -> do
+          partition <- gets snd
+          put (waiting', partition) -- Remove A from W before continuing.
+          handleA a
 
 -- This was also inspired by Troels Henriksens 'runDFA' function
 -- in 'https://sigkill.dk/hacks/scripts/HsGrep.hs'.
@@ -181,7 +298,7 @@ runDfa str' dfa = runDfa' str' (dfaStartState dfa)
     runDfa' str currState
       | isAccepting currState =
           -- If the current state is accepting, we still try to consume the
-          -- next character(s), but if this fails, we stop here. I love monads.
+          -- next character(s), but if this fails, we stop here.
           consume str currState <|> Just ("", str)
       | otherwise = consume str currState
 
