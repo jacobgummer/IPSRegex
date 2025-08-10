@@ -78,24 +78,15 @@ nfaToDfa nfa = minimiseDfa dfa
     nfaAlph = nfaAlphabet nfa
     startStateS = S.singleton $ nfaStartState nfa
     s0' = epsClosure nfaTrns startStateS
-    dead = S.singleton (-1) -- Used to make the move function total.
-    (states, trns) = subsetConstruction s0' dead nfaTrns nfaAlph
+    (states, allTrns) = subsetConstruction s0' nfaTrns nfaAlph
 
-    -- states <> S.fromList [s0', dead]
-    allStates' = S.insert s0' states
-    allStates = S.insert dead allStates'
+    allStates = S.insert s0' states
 
     nfaAcc = nfaAcceptingState nfa
 
     accepting = S.filter (S.member nfaAcc) allStates
 
-    -- For each character c in the alphabet, make a transition from the dead
-    -- state to itself via c.
-    connectDeadToSelf c = M.singleton dead (M.singleton c dead)
-    allTrns = foldr (M.unionWith M.union . connectDeadToSelf) trns nfaAlph
-
-    idStatePairs' = M.fromList $ zip (S.elems allStates') [0 ..]
-    idStatePairs = M.insert dead (-1) idStatePairs'
+    idStatePairs = M.fromList $ zip (S.elems allStates) [0 ..]
 
     converter = (M.!) idStatePairs
     idsAllTrns = convertTrns converter allTrns
@@ -125,11 +116,10 @@ convertTrns converter trns' = trnsWIds
 -- It uses the work-list algorithm "template" for efficiency.
 subsetConstruction ::
   DFAState' ->
-  DFAState' ->
   NFATransitions ->
   Alphabet ->
   (Set DFAState', DFATransitions')
-subsetConstruction s0' dead nfaTrns nfaAlph =
+subsetConstruction s0' nfaTrns nfaAlph =
   subsetConstruction' [s0'] S.empty M.empty
   where
     subsetConstruction' [] states trns = (states, trns)
@@ -150,10 +140,10 @@ subsetConstruction s0' dead nfaTrns nfaAlph =
     -- s' should transition to via c.
     moveAll s' = foldr (findStatesAndTransitions s') (S.empty, M.empty) nfaAlph
 
-    findStatesAndTransitions s' c (states, trns) =
+    findStatesAndTransitions s' c acc@(states, trns) =
       let to = move s' c
        in if null to
-            then (states, trns `combine` connect s' c dead)
+            then acc
             else (S.insert to states, trns `combine` connect s' c to)
 
     -- Calculate the (DFA) state that s' should reach when transitioning via c.
