@@ -19,19 +19,25 @@ import IPSRegex.NFA (
 -- | Each DFA state is a set of NFA states.
 -- Not necessary but makes it easier to implement algorithm for subset
 -- construction.
-type DFAState = Set NFAState
+type DFAState' = Set NFAState
+
+type DFAState = Int
 
 -- | Transitions from a single DFA state.
+type DFAStateTransitions' = Map Char DFAState'
+
 type DFAStateTransitions = Map Char DFAState
 
 -- | The outgoing transitions for the states in the DFA.
+type DFATransitions' = Map DFAState' DFAStateTransitions'
+
 type DFATransitions = Map DFAState DFAStateTransitions
 
 data DFA = DFA
-  { dfaStates :: Set DFAState
-  , dfaStartState :: DFAState
-  , dfaAcceptingStates :: Set DFAState
-  , dfaTransitions :: DFATransitions
+  { dfaStates :: Set DFAState'
+  , dfaStartState :: DFAState'
+  , dfaAcceptingStates :: Set DFAState'
+  , dfaTransitions :: DFATransitions'
   }
 
 -- | Find the ε-closure of a set of states @m@.
