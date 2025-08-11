@@ -78,11 +78,10 @@ epsTransitions trns states = Set.unions $ Set.map reachableViaEps states
     reachableViaEps s =
       M.findWithDefault Set.empty Epsilon . M.findWithDefault M.empty s $ trns
 
--- | Convert an NFA to a DFA, first by using the subset construction algorithm
--- described in section 1.5.2 in 'Introduction to Compiler Design' to construct
--- an equivalent DFA, then minimising this DFA.
+-- | Convert an NFA to a DFA by using the subset construction algorithm
+-- described in section 1.5.2 in 'Introduction to Compiler Design'.
 nfaToDfa :: NFA -> DFA
-nfaToDfa nfa = minimiseDfa dfa
+nfaToDfa nfa = dfa
   where
     nfaTrns = nfaTransitions nfa
     dfaAlph = nfaAlphabet nfa
