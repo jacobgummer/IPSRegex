@@ -228,7 +228,7 @@ hopcroft dfaTrns allStates alph waiting partition =
     alphList = Set.elems alph
 
     -- Check if 's' can reach 'a' via the character 'c'.
-    -- OPTIM: Could construct a reverse transition map beforehand.
+    -- OPTIM: Could construct an inverse transition map beforehand.
     canReachVia c a s =
       case M.lookup s dfaTrns of
         Nothing -> False
