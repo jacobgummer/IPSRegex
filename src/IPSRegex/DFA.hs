@@ -6,6 +6,7 @@ import Control.Monad.State (
   MonadState (get, put),
   evalState,
   gets,
+  modify',
  )
 import Data.Bifunctor (first, second)
 import Data.Foldable (toList)
@@ -238,7 +239,7 @@ hopcroft dfaTrns allStates alph waiting partition =
     -- If Y is in W, replace Y with X ∩ Y and Y - X in W.
     -- Otherwise, insert the smaller of X ∩ Y and Y - X.
     modifyWaiting mbI intersect diff = do
-      (waiting, partition) <- get
+      waiting <- gets fst
       let newWaiting =
             case mbI of
               Nothing ->
@@ -246,14 +247,14 @@ hopcroft dfaTrns allStates alph waiting partition =
                   then intersect <| waiting
                   else diff <| waiting
               Just i -> Sq.fromList [intersect, diff] >< Sq.deleteAt i waiting
-      put (newWaiting, partition)
+      modify' (first $ const newWaiting)
 
     -- Replace Y with X ∩ Y and Y - X in P.
     modifyPartition i intersect diff = do
-      (waiting, partition) <- get
-      let newPartition =
-            Sq.fromList [intersect, diff] >< Sq.deleteAt i partition
-      put (waiting, newPartition)
+      partition <- gets snd
+      let yRemoved = Sq.deleteAt i partition
+          newPartition = Sq.fromList [intersect, diff] >< yRemoved
+      modify' (second $ const newPartition)
 
     -- Handle a Y for which X ∩ Y ≠ ∅ and Y - X ≠ ∅.
     handleY x y = do
