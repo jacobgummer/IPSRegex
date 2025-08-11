@@ -5,10 +5,13 @@ import Data.Map (Map)
 import qualified Data.Map as M
 import Data.Maybe (fromMaybe)
 import qualified Data.Set as S
+import Graphs
 import IPSRegex.DFA (DFA (..), nfaToDfa, runDfa)
 import IPSRegex.NFA (NFA (..), regexpToNfa)
 import IPSRegex.Parse (parseRegexp)
 import IPSRegex.Regex (RegExp)
+
+import System.Environment (getArgs)
 
 -- showSet :: (Show a) => S.Set a -> [Char]
 -- showSet s = "{" ++ intercalate "," (map show (S.toList s)) ++ "}"
@@ -108,34 +111,43 @@ testDfa2 =
 -- TODO: Do things based on program input.
 main :: IO ()
 main = do
-  putStrWInfo' "Regex" strReg
-  putStrWInfo' "Regex (literal)" $ show regex
-  putStrWInfo' "Number of states in NFA" $ show numStatesNFA
-  putStrWInfo' "Number of states in DFA" $ show numStatesDFA
-  putStrWInfo' "Input string" test
-  putStrWInfo' "First match" $ showFstMatch regex test
-  putStrWInfo "All matches" $ showAllMatches regex test
-  where
-    -- From AoC 2024, day 3.
-    -- strReg = "don't\\(\\)|do\\(\\)|mul\\([0-9]+,[0-9]+\\)"
-    -- test =
-    --   "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)"
-    --     <> "+mul(32,64](mul(11,8)undo()?mul(8,5))"
-    strReg = "a(ab|ba)+"
-    test = "aabbaab"
-    regex = strToRegex strReg
-    nfa = regexpToNfa regex
-    dfa = nfaToDfa nfa
-    numStatesDFA = S.size $ dfaStates dfa
-    numStatesNFA = S.size $ nfaStates nfa
+  args <- getArgs
+  case args of
+    ["nfa", r] -> putStr $ printRegexpNFA r
+    ["dfa", r] -> putStr $ printRegexpDFA r False
+    ["dfa_min", r] -> putStr $ printRegexpDFA r True
+    _ -> error "Usage: cabal run -- <nfa | dfa | dfa_min> regex"
 
-    putStrWInfo info s = putStrLn $ info <> ":\n" <> s
-    putStrWInfo' info s = putStrLn $ info <> ":\n" <> s <> "\n"
-
-    showFstMatch reg input = fromMaybe "no matches" (getFirstMatch reg input)
-
-    showAllMatches reg input =
-      let allMatches = getAllMatches reg input
-       in if null allMatches
-            then "no matches"
-            else "\"" <> intercalate "\",\"" allMatches <> "\""
+-- main :: IO ()
+-- main = do
+--   putStrWInfo' "Regex" strReg
+--   putStrWInfo' "Regex (literal)" $ show regex
+--   putStrWInfo' "Number of states in NFA" $ show numStatesNFA
+--   putStrWInfo' "Number of states in DFA" $ show numStatesDFA
+--   putStrWInfo' "Input string" test
+--   putStrWInfo' "First match" $ showFstMatch regex test
+--   putStrWInfo "All matches" $ showAllMatches regex test
+--   where
+--     -- From AoC 2024, day 3.
+--     -- strReg = "don't\\(\\)|do\\(\\)|mul\\([0-9]+,[0-9]+\\)"
+--     -- test =
+--     --   "xmul(2,4)&mul[3,7]!^don't()_mul(5,5)"
+--     --     <> "+mul(32,64](mul(11,8)undo()?mul(8,5))"
+--     strReg = "a(ab|ba)+"
+--     test = "aabbaab"
+--     regex = strToRegex strReg
+--     nfa = regexpToNfa regex
+--     dfa = nfaToDfa nfa
+--     numStatesDFA = S.size $ dfaStates dfa
+--     numStatesNFA = S.size $ nfaStates nfa
+--
+--     putStrWInfo info s = putStrLn $ info <> ":\n" <> s
+--     putStrWInfo' info s = putStrLn $ info <> ":\n" <> s <> "\n"
+--
+--     showFstMatch reg input = fromMaybe "no matches" (getFirstMatch reg input)
+--
+--     showAllMatches reg input =
+--       let allMatches = getAllMatches reg input
+--        in if null allMatches
+--             then "no matches"
+--             else "\"" <> intercalate "\",\"" allMatches <> "\""
