@@ -108,7 +108,6 @@ testDfa2 =
         , (2, 'b', 3)
         ]
 
--- TODO: Do things based on program input.
 main :: IO ()
 main = do
   args <- getArgs
