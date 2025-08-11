@@ -183,9 +183,9 @@ minimiseDfa dfa = minimalDfa
     trns = dfaTransitions dfa
     alph = dfaAlphabet dfa
     partition = Sq.fromList [accepting, nonAccepting]
-    consistentStates = hopcroft trns states alph partition partition
+    equivalentStates = hopcroft trns states alph partition partition
 
-    idEquivStatePairs = zip [0 ..] consistentStates
+    idEquivStatePairs = zip [0 ..] equivalentStates
 
     findNewId [] s = error "s couldn't be found"
     findNewId ((newId, states) : rest) s
