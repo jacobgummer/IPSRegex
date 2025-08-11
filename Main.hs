@@ -47,11 +47,9 @@ getAllMatches regex str' = getAllMatches' str' []
         Just (match, rest) -> getAllMatches' rest (match : matches)
 
 makeTransitions :: [(Int, Char, Int)] -> Map Int (Map Char Int)
-makeTransitions = foldr f M.empty
+makeTransitions = foldr (M.unionWith M.union . singleTrn) M.empty
   where
-    f (s1, c, s2) acc =
-      let trn = M.singleton s1 (M.singleton c s2)
-       in M.unionWith M.union trn acc
+    singleTrn (s1, c, s2) = M.singleton s1 (M.singleton c s2)
 
 -- | Fig. 1.10 in 'Introduction to Compiler Design'.
 testDfa1 :: DFA
