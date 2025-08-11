@@ -44,4 +44,4 @@ regexp = chainr1 simple (char '|' >> pure RegChoice)
         <|> return s
 
 parseRegexp :: String -> Either ParseError RegExp
-parseRegexp = parse (regexp <* eof) ""
+parseRegexp = parse (regexp <* eof) "command-line"
