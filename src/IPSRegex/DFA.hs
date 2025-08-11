@@ -197,11 +197,11 @@ minimiseDfa dfa = minimalDfa
         Set.toAscList $
           Set.map (findNewId idEquivStatePairs) states
 
-    converter = (M.!) newStateIdsMap
-    trnsMinimal = M.map (M.map converter) . M.mapKeys converter $ trns
+    getNewId = (M.!) newStateIdsMap
+    trnsMinimal = M.map (M.map getNewId) . M.mapKeys getNewId $ trns
     statesMinimal = Set.fromList $ M.elems newStateIdsMap
-    startStateMinimal = converter $ dfaStartState dfa
-    acceptingMinimal = Set.map converter accepting
+    startStateMinimal = getNewId $ dfaStartState dfa
+    acceptingMinimal = Set.map getNewId accepting
 
     minimalDfa =
       DFA
