@@ -20,6 +20,7 @@ library
     IPSRegex.Parse
     IPSRegex.NFA
     IPSRegex.DFA
+    Graphs
   default-language: Haskell2010
   default-extensions: FlexibleContexts
   build-depends: 
