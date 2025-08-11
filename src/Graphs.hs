@@ -91,9 +91,10 @@ printNFA nfa = evalState (execWriterT printNFA') (M.empty, 0 :: Int)
       mapM_ trans $ M.toList $ nfaTransitions nfa
       tell "}\n"
 
-printDFA :: DFA -> String
-printDFA dfa = evalState (execWriterT printDFA') (M.empty, 0 :: Int)
+printDFA :: Bool -> DFA -> String
+printDFA minimise dfa = evalState (execWriterT printDFA') (M.empty, 0 :: Int)
   where
+    dfa' = if minimise then minimiseDfa dfa else dfa
     node k = do
       (s, v) <- get
       case M.lookup k s of
@@ -101,7 +102,7 @@ printDFA dfa = evalState (execWriterT printDFA') (M.empty, 0 :: Int)
         Nothing -> do
           let v' = v + 1
               v'' = 'S' : show v'
-          tell $ statelabel v'' v $ k `S.member` dfaAcceptingStates dfa
+          tell $ statelabel v'' v $ k `S.member` dfaAcceptingStates dfa'
           put (M.insert k v'' s, v')
           return v''
     trans (from, ts) =
@@ -117,14 +118,14 @@ printDFA dfa = evalState (execWriterT printDFA') (M.empty, 0 :: Int)
             ++ "\"]\n"
     printDFA' = do
       tell "digraph dfa {\nrankdir=LR\nEmp [style=invisible]\n"
-      mapM_ trans $ M.toList $ dfaTransitions dfa
+      mapM_ trans $ M.toList $ dfaTransitions dfa'
       tell "}\n"
 
 compileRegexp :: String -> Either ParseError NFA
 compileRegexp r = regexpToNfa <$> parseRegexp r
 
-printRegexpDFA :: String -> String
-printRegexpDFA regex = printDFA $ nfaToDfa nfa
+printRegexpDFA :: String -> Bool -> String
+printRegexpDFA regex minimise = printDFA minimise $ nfaToDfa nfa
   where
     nfa = case compileRegexp regex of
       Left e -> error $ show e
