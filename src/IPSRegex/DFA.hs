@@ -3,7 +3,7 @@ module IPSRegex.DFA (minimiseDfa, nfaToDfa, runDfa, DFA (..)) where
 import Control.Applicative ((<|>))
 import Control.Monad (forM_)
 import Control.Monad.State (
-  MonadState (get, put),
+  MonadState (get),
   evalState,
   gets,
   modify',
