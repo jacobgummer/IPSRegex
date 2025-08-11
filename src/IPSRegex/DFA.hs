@@ -279,10 +279,9 @@ hopcroft dfaTrns allStates alph waiting partition =
       waiting <- gets fst
       case waiting of
         Empty -> gets snd
-        (a :<| waiting') -> do
-          partition <- gets snd
-          put (waiting', partition) -- Remove A from W before continuing.
-          handleA a
+        (a :<| waiting') ->
+          -- Remove A from W before continuing.
+          modify' (first $ const waiting') >> handleA a
 
 -- This was also inspired by Troels Henriksens 'runDFA' function
 -- in 'https://sigkill.dk/hacks/scripts/HsGrep.hs'.
