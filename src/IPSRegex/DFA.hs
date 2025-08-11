@@ -199,17 +199,17 @@ minimiseDfa dfa = minimalDfa
 
     converter = (M.!) newStateIdsMap
     idKeysMap = M.mapKeys converter trns
-    newTrns = M.map (M.map converter) idKeysMap
-    newStates = Set.fromList $ M.elems newStateIdsMap
-    newStartState = converter $ dfaStartState dfa
-    newAccepting = Set.map converter accepting
+    trnsMinimal = M.map (M.map converter) idKeysMap
+    statesMinimal = Set.fromList $ M.elems newStateIdsMap
+    startStateMinimal = converter $ dfaStartState dfa
+    acceptingMinimal = Set.map converter accepting
 
     minimalDfa =
       DFA
-        { dfaStartState = newStartState
-        , dfaStates = newStates
-        , dfaAcceptingStates = newAccepting
-        , dfaTransitions = newTrns
+        { dfaStartState = startStateMinimal
+        , dfaStates = statesMinimal
+        , dfaAcceptingStates = acceptingMinimal
+        , dfaTransitions = trnsMinimal
         , dfaAlphabet = alph
         }
 
